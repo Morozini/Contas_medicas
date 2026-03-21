@@ -1,4 +1,4 @@
-# 🚀 execução
+
 from app.services.service_contas_medicas import ServiceContasMedicas
 
 
