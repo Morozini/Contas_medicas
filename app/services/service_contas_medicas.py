@@ -35,7 +35,6 @@ class ServiceContasMedicas:
         self.zip_path = Path(os.getenv("DOWNLOAD_PATH", "downloads"))
         self.zip_path.mkdir(parents=True, exist_ok=True)
 
-        # Limpa arquivos antigos
         for f in self.zip_path.glob("*"):
             try:
                 f.unlink()
@@ -178,7 +177,7 @@ class ServiceContasMedicas:
             except TimeoutException:
                 continue
 
-        self.get_file_in_zip()
+        return self.get_file_in_zip()
 
     def wait_download_link(self, xpath):
         try:
@@ -203,42 +202,32 @@ class ServiceContasMedicas:
             sleep(1)
         raise TimeoutError("Download não finalizou.")
 
-    def get_file_in_zip(self, sheet_name=None):
+    def get_file_in_zip(self):
         zip_file = get_latest_file(self.zip_path, "zip")
-        print(f"Lendo ZIP: {zip_file}")
 
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-            arquivos = zip_ref.namelist()
-            if not arquivos:
-                raise Exception("ZIP está vazio.")
-
-            print("Arquivos dentro do ZIP:")
-            for a in arquivos:
-                print(f" - {a}")
-
-            # Pega primeiro arquivo válido
-            arquivo_excel = next((n for n in arquivos if n.endswith((".xls", ".xlsx", ".csv"))), None)
-            if not arquivo_excel:
-                raise Exception("Nenhum arquivo Excel encontrado dentro do ZIP.")
-
-            # Extrai
             extract_path = self.zip_path / "content"
             extract_path.mkdir(exist_ok=True)
             zip_ref.extractall(extract_path)
-            caminho_arquivo = extract_path / arquivo_excel
 
-        print(f"Arquivo encontrado: {caminho_arquivo}")
+            arquivos = zip_ref.namelist()
+            arquivo_excel = next((n for n in arquivos if n.endswith((".xls", ".xlsx"))), None)
+
+        caminho_arquivo = extract_path / arquivo_excel
 
         transformer = TransformationData(
-            zip_path=str(zip_file),  # .zip baixado
+            zip_path=str(caminho_arquivo),
             type_excel='xlsx',
             number_row_del=2
         )
 
-        transformer.read_zip_path(sheet_name=None)
-        transformer.load_data_content()
-        transformer.export_clean_excel(extract_path)
-        print(f"Arquivo processado com sucesso: {caminho_arquivo}")
+        analise_df = transformer.read_excel("Análise de Atendimentos")
+        inconsistencias_df = transformer.read_excel("Inconsistencias de Atendimentos")
+
+        return {
+            "analise": analise_df,
+            "inconsistencias": inconsistencias_df
+        }
 
     def close(self):
         self.driver.quit()
